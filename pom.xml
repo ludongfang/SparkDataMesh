@@ -14,7 +14,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <scala.version>2.12.17</scala.version>
     <spark.version>3.5.0</spark.version>
-    <jackson.version>2.15.2</jackson.version>
   </properties>
 
   <dependencies>
@@ -30,25 +29,12 @@
       <version>${spark.version}</version>
     </dependency>
     
-    <!-- JSON Processing -->
+    <!-- YAML Processing -->
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>${jackson.version}</version>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>2.0</version>
     </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <version>${jackson.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.module</groupId>
-      <artifactId>jackson-module-scala_2.12</artifactId>
-      <version>${jackson.version}</version>
-    </dependency>
-    
-    <!-- YAML Processing (includes validation capabilities) -->
-    <!-- Jackson YAML already included above -->
     
     <!-- Configuration -->
     <dependency>

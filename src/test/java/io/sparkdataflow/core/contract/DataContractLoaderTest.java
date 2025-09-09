@@ -8,14 +8,14 @@ public class DataContractLoaderTest {
     @Test
     public void testValidYamlContractValidation() {
         DataContractLoader loader = new DataContractLoader();
-        boolean isValid = loader.validateYamlContract("src/test/resources/test-contract-valid.yaml");
+        boolean isValid = loader.validateContract("src/test/resources/test-contract-valid.yaml");
         Assert.assertTrue("Valid YAML contract should pass validation", isValid);
     }
 
     @Test
     public void testInvalidYamlContractValidation() {
         DataContractLoader loader = new DataContractLoader();
-        boolean isValid = loader.validateYamlContract("src/test/resources/test-contract-invalid.yaml");
+        boolean isValid = loader.validateContract("src/test/resources/test-contract-invalid.yaml");
         Assert.assertFalse("Invalid YAML contract should fail validation", isValid);
     }
 

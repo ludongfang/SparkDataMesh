@@ -1,11 +1,12 @@
 package io.sparkdataflow.core.contract;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import org.yaml.snakeyaml.Yaml;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -14,13 +15,11 @@ import java.util.List;
 public class DataContractLoader {
     
     private static final Logger logger = LoggerFactory.getLogger(DataContractLoader.class);
-    private final ObjectMapper jsonMapper;
-    private final ObjectMapper yamlMapper;
+    private final Yaml yaml;
     
     public DataContractLoader() {
-        this.jsonMapper = new ObjectMapper();
-        this.yamlMapper = new ObjectMapper(new YAMLFactory());
-        logger.info("DataContractLoader initialized with YAML-first approach");
+        this.yaml = new Yaml();
+        logger.info("DataContractLoader initialized with SnakeYAML for YAML-only support");
     }
     
     /**
@@ -97,40 +96,30 @@ public class DataContractLoader {
     public DataContract loadFromFile(String filePath) throws IOException, IllegalArgumentException {
         logger.info("Loading data contract from file: {}", filePath);
         
-        String content = new String(Files.readAllBytes(Paths.get(filePath)));
-        DataContract contract;
-        boolean isYaml = filePath.endsWith(".yaml") || filePath.endsWith(".yml");
+        if (!filePath.endsWith(".yaml") && !filePath.endsWith(".yml")) {
+            throw new IllegalArgumentException("Unsupported file format. Only YAML files (.yaml, .yml) are supported.");
+        }
         
-        if (isYaml) {
-            contract = yamlMapper.readValue(content, DataContract.class);
+        try (FileInputStream fileInputStream = new FileInputStream(filePath)) {
+            DataContract contract = yaml.loadAs(fileInputStream, DataContract.class);
             logger.debug("Parsed YAML contract: {}", contract.getId());
-        } else if (filePath.endsWith(".json")) {
-            contract = jsonMapper.readValue(content, DataContract.class);
-            logger.debug("Parsed JSON contract: {}", contract.getId());
-        } else {
-            throw new IllegalArgumentException("Unsupported file format. Only JSON and YAML are supported.");
+            
+            List<String> validationErrors = validateContractStructure(contract);
+            if (!validationErrors.isEmpty()) {
+                String errorMessage = "Data contract validation failed:\\n" + String.join("\\n", validationErrors);
+                logger.error("Data contract validation failed: {}", errorMessage);
+                throw new IllegalArgumentException(errorMessage);
+            }
+            
+            logger.info("Successfully loaded and validated data contract: {}", contract.getId());
+            return contract;
         }
-        
-        List<String> validationErrors = validateContractStructure(contract);
-        if (!validationErrors.isEmpty()) {
-            String errorMessage = "Data contract validation failed:\\n" + String.join("\\n", validationErrors);
-            logger.error("Data contract validation failed: {}", errorMessage);
-            throw new IllegalArgumentException(errorMessage);
-        }
-        
-        logger.info("Successfully loaded and validated data contract: {}", contract.getId());
-        return contract;
     }
     
-    public DataContract loadFromString(String content, boolean isYaml) throws IOException, IllegalArgumentException {
-        logger.info("Loading data contract from string content");
+    public DataContract loadFromString(String content) throws IllegalArgumentException {
+        logger.info("Loading data contract from YAML string content");
         
-        DataContract contract;
-        if (isYaml) {
-            contract = yamlMapper.readValue(content, DataContract.class);
-        } else {
-            contract = jsonMapper.readValue(content, DataContract.class);
-        }
+        DataContract contract = yaml.loadAs(new StringReader(content), DataContract.class);
         
         List<String> validationErrors = validateContractStructure(contract);
         if (!validationErrors.isEmpty()) {
@@ -146,17 +135,13 @@ public class DataContractLoader {
     public void saveToFile(DataContract contract, String filePath) throws IOException {
         logger.info("Saving data contract to file: {}", filePath);
         
-        boolean isYaml = filePath.endsWith(".yaml") || filePath.endsWith(".yml");
-        
-        if (isYaml) {
-            yamlMapper.writeValue(Paths.get(filePath).toFile(), contract);
-            logger.debug("Saved contract as YAML: {}", filePath);
-        } else if (filePath.endsWith(".json")) {
-            jsonMapper.writerWithDefaultPrettyPrinter().writeValue(Paths.get(filePath).toFile(), contract);
-            logger.debug("Saved contract as JSON: {}", filePath);
-        } else {
-            throw new IllegalArgumentException("Unsupported file format. Only JSON and YAML are supported.");
+        if (!filePath.endsWith(".yaml") && !filePath.endsWith(".yml")) {
+            throw new IllegalArgumentException("Unsupported file format. Only YAML files (.yaml, .yml) are supported.");
         }
+        
+        String yamlContent = yaml.dump(contract);
+        Files.write(Paths.get(filePath), yamlContent.getBytes());
+        logger.debug("Saved contract as YAML: {}", filePath);
         
         logger.info("Successfully saved data contract: {}", contract.getId());
     }
@@ -166,7 +151,7 @@ public class DataContractLoader {
      * @param yamlFilePath Path to the YAML contract file
      * @return true if valid, false otherwise
      */
-    public boolean validateYamlContract(String yamlFilePath) {
+    public boolean validateContract(String yamlFilePath) {
         try {
             DataContract contract = loadContractFromYaml(yamlFilePath);
             List<String> errors = validateContractStructure(contract);
@@ -189,8 +174,9 @@ public class DataContractLoader {
      * @return DataContract object
      */
     private DataContract loadContractFromYaml(String yamlFilePath) throws IOException {
-        String content = new String(Files.readAllBytes(Paths.get(yamlFilePath)));
-        return yamlMapper.readValue(content, DataContract.class);
+        try (FileInputStream fileInputStream = new FileInputStream(yamlFilePath)) {
+            return yaml.loadAs(fileInputStream, DataContract.class);
+        }
     }
     
 }
