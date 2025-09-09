@@ -1,0 +1,269 @@
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "Data Contract Schema"
+description: "Schema for defining data contracts based on Open Data Contract Standard"
+type: object
+required: 
+  - dataContractSpecification
+  - id
+  - info
+  - schema
+
+properties:
+  dataContractSpecification:
+    type: string
+    const: "1.0.0"
+    description: "Version of the data contract specification"
+  
+  id:
+    type: string
+    description: "Unique identifier for the data contract"
+  
+  info:
+    type: object
+    required: 
+      - title
+      - version
+    properties:
+      title:
+        type: string
+        description: "Title of the data contract"
+      version:
+        type: string
+        description: "Version of the data contract"
+      description:
+        type: string
+        description: "Description of the data contract"
+      owner:
+        type: string
+        description: "Owner of the data contract"
+      contact:
+        type: object
+        properties:
+          name:
+            type: string
+          email:
+            type: string
+            format: email
+
+  servers:
+    type: array
+    description: "Data servers/sources configuration"
+    items:
+      type: object
+      required: 
+        - type
+        - environment
+      properties:
+        type:
+          type: string
+          enum: 
+            - spark
+            - hive
+            - delta
+            - parquet
+            - json
+            - csv
+        environment:
+          type: string
+        description:
+          type: string
+        connectionString:
+          type: string
+
+  schema:
+    type: object
+    required:
+      - tables
+    properties:
+      tables:
+        type: object
+        patternProperties:
+          "^[a-zA-Z_][a-zA-Z0-9_]*$":
+            type: object
+            required:
+              - type
+              - fields
+            properties:
+              type:
+                type: string
+                enum:
+                  - source
+                  - target
+                  - intermediate
+              description:
+                type: string
+              domain:
+                type: string
+                enum:
+                  - transaction
+                  - order
+                  - ads
+                  - search
+                  - user
+                  - product
+              physicalName:
+                type: string
+                description: "Physical table name in the data source"
+              fields:
+                type: object
+                patternProperties:
+                  "^[a-zA-Z_][a-zA-Z0-9_]*$":
+                    type: object
+                    required:
+                      - type
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - string
+                          - integer
+                          - long
+                          - double
+                          - boolean
+                          - timestamp
+                          - date
+                          - decimal
+                          - array
+                          - struct
+                      description:
+                        type: string
+                      required:
+                        type: boolean
+                        default: true
+                      nullable:
+                        type: boolean
+                        default: true
+                      primaryKey:
+                        type: boolean
+                        default: false
+                      constraints:
+                        type: object
+                        properties:
+                          minLength:
+                            type: integer
+                          maxLength:
+                            type: integer
+                          minimum:
+                            type: number
+                          maximum:
+                            type: number
+                          pattern:
+                            type: string
+                          enum:
+                            type: array
+                            items:
+                              type: string
+                      format:
+                        type: string
+                        description: "Format specification for the field"
+                      precision:
+                        type: integer
+                        description: "Precision for decimal types"
+                      scale:
+                        type: integer
+                        description: "Scale for decimal types"
+              partitionBy:
+                type: array
+                items:
+                  type: string
+                description: "Partition columns for the table"
+              clusterBy:
+                type: array
+                items:
+                  type: string
+                description: "Clustering columns for the table"
+
+  transformations:
+    type: object
+    description: "Data transformation rules"
+    patternProperties:
+      "^[a-zA-Z_][a-zA-Z0-9_]*$":
+        type: object
+        required:
+          - type
+          - source
+          - target
+        properties:
+          type:
+            type: string
+            enum:
+              - extract
+              - transform
+              - aggregate
+              - join
+              - filter
+              - union
+          description:
+            type: string
+          source:
+            oneOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          target:
+            type: string
+          sql:
+            type: string
+            description: "Custom SQL transformation logic"
+          rules:
+            type: array
+            items:
+              type: object
+              properties:
+                field:
+                  type: string
+                operation:
+                  type: string
+                  enum:
+                    - map
+                    - filter
+                    - aggregate
+                    - cast
+                    - concat
+                    - split
+                    - extract
+                expression:
+                  type: string
+                condition:
+                  type: string
+
+  quality:
+    type: object
+    description: "Data quality rules and validations"
+    properties:
+      expectations:
+        type: array
+        items:
+          type: object
+          required:
+            - type
+            - table
+          properties:
+            type:
+              type: string
+              enum:
+                - not_null
+                - unique
+                - range
+                - pattern
+                - custom
+                - freshness
+                - completeness
+            table:
+              type: string
+            field:
+              type: string
+            description:
+              type: string
+            expression:
+              type: string
+            threshold:
+              type: number
+            severity:
+              type: string
+              enum:
+                - error
+                - warning
+                - info
+              default: error

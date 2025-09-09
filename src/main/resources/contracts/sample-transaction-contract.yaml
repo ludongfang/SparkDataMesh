@@ -1,0 +1,214 @@
+dataContractSpecification: "1.0.0"
+id: "transaction-data-contract"
+info:
+  title: "Transaction Domain Data Contract"
+  version: "1.0.0"
+  description: "Data contract for transaction domain processing"
+  owner: "Data Engineering Team"
+  contact:
+    name: "Data Engineering"
+    email: "data-eng@company.com"
+
+servers:
+  - type: "spark"
+    environment: "production"
+    description: "Production Spark cluster for transaction domain"
+    connectionString: "database:transaction_db"
+
+schema:
+  tables:
+    raw_transactions:
+      type: "source"
+      domain: "transaction"
+      description: "Raw transaction data from source systems"
+      physicalName: "raw_transactions"
+      fields:
+        transaction_id:
+          type: "string"
+          description: "Unique transaction identifier"
+          required: true
+          nullable: false
+          primaryKey: true
+        user_id:
+          type: "string"
+          description: "User identifier"
+          required: true
+          nullable: false
+        amount:
+          type: "decimal"
+          description: "Transaction amount"
+          required: true
+          nullable: false
+          precision: 10
+          scale: 2
+          constraints:
+            minimum: 0
+        currency:
+          type: "string"
+          description: "Currency code"
+          required: true
+          nullable: false
+          constraints:
+            pattern: "^[A-Z]{3}$"
+        transaction_date:
+          type: "timestamp"
+          description: "Transaction timestamp"
+          required: true
+          nullable: false
+        status:
+          type: "string"
+          description: "Transaction status"
+          required: true
+          nullable: false
+          constraints:
+            enum: ["pending", "completed", "failed", "cancelled"]
+        merchant_id:
+          type: "string"
+          description: "Merchant identifier"
+          nullable: true
+      partitionBy: ["transaction_date"]
+      clusterBy: ["status"]
+
+    processed_transactions:
+      type: "target"
+      domain: "transaction"
+      description: "Processed and enriched transaction data"
+      physicalName: "processed_transactions"
+      fields:
+        transaction_id:
+          type: "string"
+          description: "Unique transaction identifier"
+          required: true
+          nullable: false
+          primaryKey: true
+        user_id:
+          type: "string"
+          description: "User identifier"
+          required: true
+          nullable: false
+        amount_usd:
+          type: "decimal"
+          description: "Transaction amount in USD"
+          required: true
+          nullable: false
+          precision: 10
+          scale: 2
+        original_amount:
+          type: "decimal"
+          description: "Original transaction amount"
+          required: true
+          nullable: false
+          precision: 10
+          scale: 2
+        original_currency:
+          type: "string"
+          description: "Original currency code"
+          required: true
+          nullable: false
+        transaction_date:
+          type: "timestamp"
+          description: "Transaction timestamp"
+          required: true
+          nullable: false
+        status:
+          type: "string"
+          description: "Transaction status"
+          required: true
+          nullable: false
+        merchant_id:
+          type: "string"
+          description: "Merchant identifier"
+          nullable: true
+        is_high_value:
+          type: "boolean"
+          description: "Flag for high value transactions"
+          required: true
+          nullable: false
+        risk_score:
+          type: "double"
+          description: "Transaction risk score"
+          nullable: true
+      partitionBy: ["transaction_date"]
+
+transformations:
+  currency_conversion:
+    type: "transform"
+    description: "Convert amounts to USD and add risk scoring"
+    source: "raw_transactions"
+    target: "processed_transactions"
+    rules:
+      - field: "transaction_id"
+        operation: "map"
+        expression: "transaction_id"
+      - field: "user_id"
+        operation: "map"
+        expression: "user_id"
+      - field: "amount_usd"
+        operation: "map"
+        expression: "CASE WHEN currency = 'USD' THEN amount ELSE amount * 1.0 END"
+      - field: "original_amount"
+        operation: "map"
+        expression: "amount"
+      - field: "original_currency"
+        operation: "map"
+        expression: "currency"
+      - field: "transaction_date"
+        operation: "map"
+        expression: "transaction_date"
+      - field: "status"
+        operation: "map"
+        expression: "status"
+      - field: "merchant_id"
+        operation: "map"
+        expression: "merchant_id"
+      - field: "is_high_value"
+        operation: "map"
+        expression: "CASE WHEN amount >= 1000 THEN true ELSE false END"
+      - field: "risk_score"
+        operation: "map"
+        expression: "CASE WHEN amount >= 1000 THEN 0.8 WHEN amount >= 500 THEN 0.5 ELSE 0.2 END"
+
+quality:
+  expectations:
+    - type: "not_null"
+      table: "raw_transactions"
+      field: "transaction_id"
+      description: "Transaction ID should never be null"
+      severity: "error"
+    
+    - type: "not_null"
+      table: "raw_transactions"
+      field: "user_id"
+      description: "User ID should never be null"
+      severity: "error"
+    
+    - type: "range"
+      table: "raw_transactions"
+      field: "amount"
+      description: "Transaction amount should be positive"
+      expression: "0,1000000"
+      threshold: 5.0
+      severity: "warning"
+    
+    - type: "pattern"
+      table: "raw_transactions"
+      field: "currency"
+      description: "Currency should be 3-letter code"
+      expression: "^[A-Z]{3}$"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "completeness"
+      table: "processed_transactions"
+      field: "amount_usd"
+      description: "USD amount should be complete"
+      threshold: 100.0
+      severity: "error"
+    
+    - type: "freshness"
+      table: "raw_transactions"
+      field: "transaction_date"
+      description: "Data should be fresh within 24 hours"
+      expression: "24"
+      threshold: 95.0
+      severity: "warning"

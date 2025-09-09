@@ -1,0 +1,54 @@
+dataContractSpecification: "1.0.0"
+id: "test-contract"
+info:
+  title: "Test Data Contract"
+  version: "1.0.0"
+  description: "A test contract for validation"
+  owner: "Test Team"
+
+servers:
+  - type: "spark"
+    environment: "test"
+    description: "Test Spark environment"
+    connectionString: "database:test_db"
+
+schema:
+  tables:
+    test_table:
+      type: "source"
+      domain: "transaction"
+      description: "Test table for validation"
+      fields:
+        id:
+          type: "string"
+          required: true
+          primaryKey: true
+          description: "Unique identifier"
+        name:
+          type: "string"
+          required: true
+          description: "Test name field"
+        amount:
+          type: "decimal"
+          precision: 10
+          scale: 2
+          description: "Test amount field"
+
+transformations:
+  test_transform:
+    type: "transform"
+    description: "Test transformation"
+    source: "test_table"
+    target: "transformed_table"
+    rules:
+      - field: "name"
+        operation: "map"
+        expression: "UPPER(name)"
+
+quality:
+  expectations:
+    - type: "not_null"
+      table: "test_table"
+      field: "id"
+      description: "ID should not be null"
+      severity: "error"

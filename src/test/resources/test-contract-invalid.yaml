@@ -1,0 +1,14 @@
+dataContractSpecification: "1.0.0"
+id: "test-contract-invalid"
+info:
+  title: "Invalid Test Contract"
+  # Missing required version field
+  description: "An invalid test contract"
+
+# Missing required schema section
+
+transformations:
+  test_transform:
+    type: "invalid_type"  # Invalid transformation type
+    source: "test_table"
+    target: "transformed_table"
