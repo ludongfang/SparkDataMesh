@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.domain;
+package io.datamesh.core.domain;
 
 import io.sparkdataflow.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;
@@ -6,11 +6,11 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.StructType;
 
-public class JsonDataSource extends DomainDataSource {
+public class DeltaTableDataSource extends DomainDataSource {
     
     private final String basePath;
     
-    public JsonDataSource(SparkSession spark, String domain, String basePath) {
+    public DeltaTableDataSource(SparkSession spark, String domain, String basePath) {
         super(spark, domain);
         this.basePath = basePath;
     }
@@ -20,13 +20,13 @@ public class JsonDataSource extends DomainDataSource {
         String physicalName = getPhysicalTableName(tableName, tableConfig);
         String tablePath = getTablePath(physicalName);
         
-        logger.info("Reading JSON table: {} from path: {} for domain: {}", physicalName, tablePath, domain);
+        logger.info("Reading Delta table: {} from path: {} for domain: {}", physicalName, tablePath, domain);
         
         try {
-            return spark.read().json(tablePath);
+            return spark.read().format("delta").load(tablePath);
         } catch (Exception e) {
-            logger.error("Failed to read JSON table: {} from path: {} for domain: {}", physicalName, tablePath, domain, e);
-            throw new RuntimeException("Failed to read JSON table: " + physicalName, e);
+            logger.error("Failed to read Delta table: {} from path: {} for domain: {}", physicalName, tablePath, domain, e);
+            throw new RuntimeException("Failed to read Delta table: " + physicalName, e);
         }
     }
     
@@ -36,10 +36,10 @@ public class JsonDataSource extends DomainDataSource {
         String tablePath = getTablePath(physicalName);
         
         try {
-            return spark.read().json(tablePath).schema();
+            return spark.read().format("delta").load(tablePath).schema();
         } catch (Exception e) {
-            logger.error("Failed to get schema for JSON table: {} from path: {} in domain: {}", physicalName, tablePath, domain, e);
-            throw new RuntimeException("Failed to get schema for JSON table: " + physicalName, e);
+            logger.error("Failed to get schema for Delta table: {} from path: {} in domain: {}", physicalName, tablePath, domain, e);
+            throw new RuntimeException("Failed to get schema for Delta table: " + physicalName, e);
         }
     }
     
@@ -49,10 +49,10 @@ public class JsonDataSource extends DomainDataSource {
         String tablePath = getTablePath(physicalName);
         
         try {
-            spark.read().json(tablePath).schema();
+            spark.read().format("delta").load(tablePath).schema();
             return true;
         } catch (Exception e) {
-            logger.debug("JSON table does not exist: {} at path: {} in domain: {}", physicalName, tablePath, domain);
+            logger.debug("Delta table does not exist: {} at path: {} in domain: {}", physicalName, tablePath, domain);
             return false;
         }
     }

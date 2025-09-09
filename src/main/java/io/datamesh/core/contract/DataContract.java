@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.contract;
+package io.datamesh.core.contract;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;

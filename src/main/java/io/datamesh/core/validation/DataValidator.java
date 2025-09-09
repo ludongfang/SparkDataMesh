@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.validation;
+package io.datamesh.core.validation;
 
 import io.sparkdataflow.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;

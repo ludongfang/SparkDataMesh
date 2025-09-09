@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.sink;
+package io.datamesh.core.sink;
 
 import io.sparkdataflow.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;

@@ -1,4 +1,4 @@
-package io.sparkdataflow.core;
+package io.datamesh.core;
 
 import io.sparkdataflow.core.config.ApplicationConfig;
 import io.sparkdataflow.core.contract.DataContract;

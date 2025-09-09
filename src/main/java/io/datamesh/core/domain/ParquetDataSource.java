@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.domain;
+package io.datamesh.core.domain;
 
 import io.sparkdataflow.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;
@@ -6,11 +6,11 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.StructType;
 
-public class CsvDataSource extends DomainDataSource {
+public class ParquetDataSource extends DomainDataSource {
     
     private final String basePath;
     
-    public CsvDataSource(SparkSession spark, String domain, String basePath) {
+    public ParquetDataSource(SparkSession spark, String domain, String basePath) {
         super(spark, domain);
         this.basePath = basePath;
     }
@@ -20,16 +20,13 @@ public class CsvDataSource extends DomainDataSource {
         String physicalName = getPhysicalTableName(tableName, tableConfig);
         String tablePath = getTablePath(physicalName);
         
-        logger.info("Reading CSV table: {} from path: {} for domain: {}", physicalName, tablePath, domain);
+        logger.info("Reading Parquet table: {} from path: {} for domain: {}", physicalName, tablePath, domain);
         
         try {
-            return spark.read()
-                .option("header", "true")
-                .option("inferSchema", "true")
-                .csv(tablePath);
+            return spark.read().parquet(tablePath);
         } catch (Exception e) {
-            logger.error("Failed to read CSV table: {} from path: {} for domain: {}", physicalName, tablePath, domain, e);
-            throw new RuntimeException("Failed to read CSV table: " + physicalName, e);
+            logger.error("Failed to read Parquet table: {} from path: {} for domain: {}", physicalName, tablePath, domain, e);
+            throw new RuntimeException("Failed to read Parquet table: " + physicalName, e);
         }
     }
     
@@ -39,13 +36,10 @@ public class CsvDataSource extends DomainDataSource {
         String tablePath = getTablePath(physicalName);
         
         try {
-            return spark.read()
-                .option("header", "true")
-                .option("inferSchema", "true")
-                .csv(tablePath).schema();
+            return spark.read().parquet(tablePath).schema();
         } catch (Exception e) {
-            logger.error("Failed to get schema for CSV table: {} from path: {} in domain: {}", physicalName, tablePath, domain, e);
-            throw new RuntimeException("Failed to get schema for CSV table: " + physicalName, e);
+            logger.error("Failed to get schema for Parquet table: {} from path: {} in domain: {}", physicalName, tablePath, domain, e);
+            throw new RuntimeException("Failed to get schema for Parquet table: " + physicalName, e);
         }
     }
     
@@ -55,13 +49,10 @@ public class CsvDataSource extends DomainDataSource {
         String tablePath = getTablePath(physicalName);
         
         try {
-            spark.read()
-                .option("header", "true")
-                .option("inferSchema", "true")
-                .csv(tablePath).schema();
+            spark.read().parquet(tablePath).schema();
             return true;
         } catch (Exception e) {
-            logger.debug("CSV table does not exist: {} at path: {} in domain: {}", physicalName, tablePath, domain);
+            logger.debug("Parquet table does not exist: {} at path: {} in domain: {}", physicalName, tablePath, domain);
             return false;
         }
     }

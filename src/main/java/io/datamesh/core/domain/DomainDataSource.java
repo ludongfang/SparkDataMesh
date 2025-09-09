@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.domain;
+package io.datamesh.core.domain;
 
 import io.sparkdataflow.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;

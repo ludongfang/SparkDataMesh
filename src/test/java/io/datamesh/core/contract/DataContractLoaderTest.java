@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.contract;
+package io.datamesh.core.contract;
 
 import org.junit.Test;
 import org.junit.Assert;

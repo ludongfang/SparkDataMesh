@@ -1,4 +1,4 @@
-package io.sparkdataflow.core.domain;
+package io.datamesh.core.domain;
 
 import io.sparkdataflow.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;
@@ -6,11 +6,11 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.StructType;
 
-public class DeltaTableDataSource extends DomainDataSource {
+public class CsvDataSource extends DomainDataSource {
     
     private final String basePath;
     
-    public DeltaTableDataSource(SparkSession spark, String domain, String basePath) {
+    public CsvDataSource(SparkSession spark, String domain, String basePath) {
         super(spark, domain);
         this.basePath = basePath;
     }
@@ -20,13 +20,16 @@ public class DeltaTableDataSource extends DomainDataSource {
         String physicalName = getPhysicalTableName(tableName, tableConfig);
         String tablePath = getTablePath(physicalName);
         
-        logger.info("Reading Delta table: {} from path: {} for domain: {}", physicalName, tablePath, domain);
+        logger.info("Reading CSV table: {} from path: {} for domain: {}", physicalName, tablePath, domain);
         
         try {
-            return spark.read().format("delta").load(tablePath);
+            return spark.read()
+                .option("header", "true")
+                .option("inferSchema", "true")
+                .csv(tablePath);
         } catch (Exception e) {
-            logger.error("Failed to read Delta table: {} from path: {} for domain: {}", physicalName, tablePath, domain, e);
-            throw new RuntimeException("Failed to read Delta table: " + physicalName, e);
+            logger.error("Failed to read CSV table: {} from path: {} for domain: {}", physicalName, tablePath, domain, e);
+            throw new RuntimeException("Failed to read CSV table: " + physicalName, e);
         }
     }
     
@@ -36,10 +39,13 @@ public class DeltaTableDataSource extends DomainDataSource {
         String tablePath = getTablePath(physicalName);
         
         try {
-            return spark.read().format("delta").load(tablePath).schema();
+            return spark.read()
+                .option("header", "true")
+                .option("inferSchema", "true")
+                .csv(tablePath).schema();
         } catch (Exception e) {
-            logger.error("Failed to get schema for Delta table: {} from path: {} in domain: {}", physicalName, tablePath, domain, e);
-            throw new RuntimeException("Failed to get schema for Delta table: " + physicalName, e);
+            logger.error("Failed to get schema for CSV table: {} from path: {} in domain: {}", physicalName, tablePath, domain, e);
+            throw new RuntimeException("Failed to get schema for CSV table: " + physicalName, e);
         }
     }
     
@@ -49,10 +55,13 @@ public class DeltaTableDataSource extends DomainDataSource {
         String tablePath = getTablePath(physicalName);
         
         try {
-            spark.read().format("delta").load(tablePath).schema();
+            spark.read()
+                .option("header", "true")
+                .option("inferSchema", "true")
+                .csv(tablePath).schema();
             return true;
         } catch (Exception e) {
-            logger.debug("Delta table does not exist: {} at path: {} in domain: {}", physicalName, tablePath, domain);
+            logger.debug("CSV table does not exist: {} at path: {} in domain: {}", physicalName, tablePath, domain);
             return false;
         }
     }
