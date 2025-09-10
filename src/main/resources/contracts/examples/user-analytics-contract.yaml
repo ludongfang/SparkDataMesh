@@ -1,0 +1,512 @@
+dataContractSpecification: "1.0.0"
+id: "user-analytics-contract"
+info:
+  title: "User Analytics Data Contract"
+  version: "1.3.0"
+  description: "User behavior analytics with advanced segmentation and feature engineering"
+  owner: "Analytics Team"
+  contact:
+    name: "Analytics Engineering"
+    email: "analytics@company.com"
+
+servers:
+  - type: "spark"
+    environment: "production"
+    description: "Production analytics cluster"
+    connectionString: "database:analytics_prod"
+
+schema:
+  tables:
+    # Source: Raw user events
+    raw_user_events:
+      type: "source"
+      domain: "user"
+      description: "Raw user interaction events from web and mobile apps"
+      physicalName: "events_raw"
+      fields:
+        event_id:
+          type: "string"
+          description: "Unique event identifier"
+          required: true
+          primaryKey: true
+        user_id:
+          type: "string"
+          description: "User identifier (can be anonymous)"
+          nullable: true
+        session_id:
+          type: "string"
+          description: "Session identifier"
+          required: true
+        event_type:
+          type: "string"
+          description: "Type of user event"
+          required: true
+          constraints:
+            enum: ["page_view", "click", "scroll", "form_submit", "purchase", "login", "logout", "search"]
+        timestamp:
+          type: "timestamp"
+          description: "Event timestamp"
+          required: true
+        page_url:
+          type: "string"
+          description: "URL where event occurred"
+          nullable: true
+        referrer:
+          type: "string"
+          description: "Referrer URL"
+          nullable: true
+        user_agent:
+          type: "string"
+          description: "Browser user agent"
+          nullable: true
+        device_type:
+          type: "string"
+          description: "Device type"
+          constraints:
+            enum: ["desktop", "mobile", "tablet", "unknown"]
+        properties:
+          type: "struct"
+          description: "Event-specific properties as JSON"
+        ip_address:
+          type: "string"
+          description: "User IP address"
+          nullable: true
+        geo_country:
+          type: "string"
+          description: "Country code from IP geolocation"
+          nullable: true
+        geo_city:
+          type: "string"
+          description: "City from IP geolocation"
+          nullable: true
+      partitionBy: ["timestamp"]
+      clusterBy: ["event_type", "device_type"]
+
+    # Source: User profiles
+    user_profiles:
+      type: "source"
+      domain: "user"
+      description: "User profile and registration data"
+      physicalName: "users"
+      fields:
+        user_id:
+          type: "string"
+          description: "Unique user identifier"
+          required: true
+          primaryKey: true
+        email:
+          type: "string"
+          description: "User email address"
+          required: true
+          format: "email"
+        registration_date:
+          type: "timestamp"
+          description: "Account registration timestamp"
+          required: true
+        birth_date:
+          type: "date"
+          description: "User birth date"
+          nullable: true
+        gender:
+          type: "string"
+          description: "User gender"
+          nullable: true
+          constraints:
+            enum: ["M", "F", "O", "P"]  # Male, Female, Other, Prefer not to say
+        country:
+          type: "string"
+          description: "User country"
+          nullable: true
+        subscription_tier:
+          type: "string"
+          description: "Subscription level"
+          required: true
+          constraints:
+            enum: ["free", "basic", "premium", "enterprise"]
+        is_active:
+          type: "boolean"
+          description: "Account active status"
+          required: true
+        last_login:
+          type: "timestamp"
+          description: "Last login timestamp"
+          nullable: true
+
+    # Target: User behavior analytics
+    user_behavior_analytics:
+      type: "target"
+      domain: "user"
+      description: "Comprehensive user behavior analytics with features for ML"
+      physicalName: "user_analytics_features"
+      fields:
+        user_id:
+          type: "string"
+          description: "Unique user identifier"
+          required: true
+          primaryKey: true
+        analysis_date:
+          type: "date"
+          description: "Date of analysis"
+          required: true
+          primaryKey: true
+        
+        # Profile features
+        days_since_registration:
+          type: "integer"
+          description: "Days since user registration"
+        user_age:
+          type: "integer"
+          description: "User age in years"
+          nullable: true
+        gender:
+          type: "string"
+          description: "User gender"
+          nullable: true
+        country:
+          type: "string"
+          description: "User country"
+          nullable: true
+        subscription_tier:
+          type: "string"
+          description: "Current subscription tier"
+        
+        # Engagement features (last 30 days)
+        total_sessions:
+          type: "integer"
+          description: "Total number of sessions"
+        total_events:
+          type: "integer"
+          description: "Total number of events"
+        unique_days_active:
+          type: "integer"
+          description: "Number of unique days with activity"
+        avg_session_duration_minutes:
+          type: "double"
+          description: "Average session duration in minutes"
+        total_page_views:
+          type: "integer"
+          description: "Total page views"
+        total_clicks:
+          type: "integer"
+          description: "Total clicks"
+        total_searches:
+          type: "integer"
+          description: "Total searches performed"
+        
+        # Device and platform features
+        primary_device_type:
+          type: "string"
+          description: "Most frequently used device type"
+        device_diversity:
+          type: "integer"
+          description: "Number of different device types used"
+        
+        # Behavioral patterns
+        is_weekend_user:
+          type: "boolean"
+          description: "Primary usage on weekends"
+        preferred_hour:
+          type: "integer"
+          description: "Most active hour of day (0-23)"
+        session_regularity_score:
+          type: "double"
+          description: "Regularity of session timing (0-1)"
+        
+        # Engagement scores
+        engagement_score:
+          type: "double"
+          description: "Overall engagement score (0-100)"
+        churn_risk_score:
+          type: "double"
+          description: "Churn risk prediction score (0-1)"
+        
+        # Conversion features
+        conversion_events:
+          type: "integer"
+          description: "Number of conversion events (purchases, signups)"
+        
+        # Recency features
+        days_since_last_activity:
+          type: "integer"
+          description: "Days since last recorded activity"
+        
+        # Feature engineering timestamp
+        feature_generation_timestamp:
+          type: "timestamp"
+          description: "When these features were generated"
+          required: true
+      
+      partitionBy: ["analysis_date"]
+      clusterBy: ["subscription_tier", "churn_risk_score"]
+
+    # Intermediate: Session aggregations
+    session_aggregations:
+      type: "intermediate"
+      domain: "user"
+      description: "Session-level aggregations for user behavior analysis"
+      fields:
+        session_id:
+          type: "string"
+          required: true
+          primaryKey: true
+        user_id:
+          type: "string"
+          required: true
+        session_start:
+          type: "timestamp"
+          required: true
+        session_end:
+          type: "timestamp"
+          required: true
+        session_duration_minutes:
+          type: "double"
+          description: "Session duration in minutes"
+        event_count:
+          type: "integer"
+          description: "Number of events in session"
+        page_views:
+          type: "integer"
+          description: "Number of page views"
+        clicks:
+          type: "integer"
+          description: "Number of clicks"
+        device_type:
+          type: "string"
+          description: "Device type for session"
+        country:
+          type: "string"
+          description: "Country for session"
+        has_conversion:
+          type: "boolean"
+          description: "Whether session included conversion event"
+
+transformations:
+  # Step 1: Aggregate events into sessions
+  session_aggregation:
+    type: "aggregate"
+    description: "Aggregate user events into session-level metrics"
+    source: "raw_user_events"
+    target: "session_aggregations"
+    sql: |
+      SELECT 
+        session_id,
+        FIRST(user_id) as user_id,
+        MIN(timestamp) as session_start,
+        MAX(timestamp) as session_end,
+        (UNIX_TIMESTAMP(MAX(timestamp)) - UNIX_TIMESTAMP(MIN(timestamp))) / 60.0 as session_duration_minutes,
+        COUNT(*) as event_count,
+        SUM(CASE WHEN event_type = 'page_view' THEN 1 ELSE 0 END) as page_views,
+        SUM(CASE WHEN event_type = 'click' THEN 1 ELSE 0 END) as clicks,
+        FIRST(device_type) as device_type,
+        FIRST(geo_country) as country,
+        MAX(CASE WHEN event_type IN ('purchase', 'form_submit') THEN 1 ELSE 0 END) as has_conversion
+      FROM raw_user_events
+      WHERE timestamp >= CURRENT_DATE - INTERVAL 30 DAYS
+        AND user_id IS NOT NULL
+      GROUP BY session_id
+
+  # Step 2: Generate comprehensive user analytics
+  user_analytics_generation:
+    type: "transform"
+    description: "Generate comprehensive user behavior analytics and ML features"
+    source: ["user_profiles", "session_aggregations", "raw_user_events"]
+    target: "user_behavior_analytics"
+    sql: |
+      WITH user_sessions AS (
+        SELECT 
+          u.user_id,
+          u.registration_date,
+          u.birth_date,
+          u.gender,
+          u.country,
+          u.subscription_tier,
+          
+          -- Session-based metrics
+          COUNT(s.session_id) as total_sessions,
+          SUM(s.event_count) as total_events,
+          COUNT(DISTINCT DATE(s.session_start)) as unique_days_active,
+          AVG(s.session_duration_minutes) as avg_session_duration_minutes,
+          SUM(s.page_views) as total_page_views,
+          SUM(s.clicks) as total_clicks,
+          SUM(s.has_conversion) as conversion_events,
+          
+          -- Device diversity
+          COUNT(DISTINCT s.device_type) as device_diversity,
+          MODE(s.device_type) as primary_device_type,
+          
+          -- Timing patterns
+          AVG(CASE WHEN DAYOFWEEK(s.session_start) IN (1, 7) THEN 1.0 ELSE 0.0 END) as weekend_usage_ratio,
+          MODE(HOUR(s.session_start)) as preferred_hour,
+          
+          -- Recency
+          DATEDIFF(CURRENT_DATE, MAX(DATE(s.session_start))) as days_since_last_activity,
+          
+          -- Session regularity (simplified)
+          STDDEV(UNIX_TIMESTAMP(s.session_start)) / (24 * 3600) as session_timing_variance_days
+          
+        FROM user_profiles u
+        LEFT JOIN session_aggregations s ON u.user_id = s.user_id
+        WHERE u.is_active = true
+        GROUP BY u.user_id, u.registration_date, u.birth_date, u.gender, u.country, u.subscription_tier
+      ),
+      
+      search_metrics AS (
+        SELECT 
+          user_id,
+          COUNT(*) as total_searches
+        FROM raw_user_events
+        WHERE event_type = 'search'
+          AND timestamp >= CURRENT_DATE - INTERVAL 30 DAYS
+          AND user_id IS NOT NULL
+        GROUP BY user_id
+      )
+      
+      SELECT 
+        us.user_id,
+        CURRENT_DATE as analysis_date,
+        
+        -- Profile features
+        DATEDIFF(CURRENT_DATE, DATE(us.registration_date)) as days_since_registration,
+        CASE 
+          WHEN us.birth_date IS NOT NULL 
+          THEN FLOOR(DATEDIFF(CURRENT_DATE, us.birth_date) / 365.25)
+          ELSE NULL 
+        END as user_age,
+        us.gender,
+        us.country,
+        us.subscription_tier,
+        
+        -- Engagement metrics
+        COALESCE(us.total_sessions, 0) as total_sessions,
+        COALESCE(us.total_events, 0) as total_events,
+        COALESCE(us.unique_days_active, 0) as unique_days_active,
+        COALESCE(us.avg_session_duration_minutes, 0.0) as avg_session_duration_minutes,
+        COALESCE(us.total_page_views, 0) as total_page_views,
+        COALESCE(us.total_clicks, 0) as total_clicks,
+        COALESCE(sm.total_searches, 0) as total_searches,
+        
+        -- Device features
+        COALESCE(us.primary_device_type, 'unknown') as primary_device_type,
+        COALESCE(us.device_diversity, 0) as device_diversity,
+        
+        -- Behavioral patterns
+        (us.weekend_usage_ratio >= 0.5) as is_weekend_user,
+        COALESCE(us.preferred_hour, 12) as preferred_hour,
+        CASE 
+          WHEN us.session_timing_variance_days IS NULL THEN 0.0
+          WHEN us.session_timing_variance_days <= 1.0 THEN 1.0
+          ELSE 1.0 / us.session_timing_variance_days
+        END as session_regularity_score,
+        
+        -- Engagement score (0-100)
+        LEAST(100.0, 
+          (COALESCE(us.total_sessions, 0) * 2.0) +
+          (COALESCE(us.unique_days_active, 0) * 3.0) +
+          (COALESCE(us.total_clicks, 0) * 0.1) +
+          (COALESCE(us.conversion_events, 0) * 10.0)
+        ) as engagement_score,
+        
+        -- Churn risk score (0-1)
+        CASE 
+          WHEN us.days_since_last_activity IS NULL THEN 1.0
+          WHEN us.days_since_last_activity >= 30 THEN 0.9
+          WHEN us.days_since_last_activity >= 14 THEN 0.7
+          WHEN us.days_since_last_activity >= 7 THEN 0.4
+          WHEN us.days_since_last_activity >= 3 THEN 0.2
+          ELSE 0.1
+        END as churn_risk_score,
+        
+        -- Conversion features
+        COALESCE(us.conversion_events, 0) as conversion_events,
+        
+        -- Recency
+        COALESCE(us.days_since_last_activity, 999) as days_since_last_activity,
+        
+        CURRENT_TIMESTAMP() as feature_generation_timestamp
+      
+      FROM user_sessions us
+      LEFT JOIN search_metrics sm ON us.user_id = sm.user_id
+
+quality:
+  expectations:
+    # Source data quality
+    - type: "not_null"
+      table: "raw_user_events"
+      field: "event_id"
+      description: "Event ID must be present"
+      severity: "error"
+    
+    - type: "not_null"
+      table: "raw_user_events"
+      field: "session_id"
+      description: "Session ID must be present"
+      severity: "error"
+    
+    - type: "not_null"
+      table: "user_profiles"
+      field: "user_id"
+      description: "User ID must be present"
+      severity: "error"
+    
+    - type: "unique"
+      table: "user_profiles"
+      field: "user_id"
+      description: "User IDs must be unique"
+      severity: "error"
+    
+    - type: "pattern"
+      table: "user_profiles"
+      field: "email"
+      description: "Email must be valid format"
+      expression: "^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$"
+      threshold: 2.0
+      severity: "warning"
+    
+    # Feature quality
+    - type: "range"
+      table: "user_behavior_analytics"
+      field: "engagement_score"
+      description: "Engagement score should be 0-100"
+      expression: "0,100"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "range"
+      table: "user_behavior_analytics"
+      field: "churn_risk_score"
+      description: "Churn risk score should be 0-1"
+      expression: "0,1"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "range"
+      table: "user_behavior_analytics"
+      field: "session_regularity_score"
+      description: "Regularity score should be 0-1"
+      expression: "0,1"
+      threshold: 1.0
+      severity: "error"
+    
+    # Business logic validation
+    - type: "custom"
+      table: "user_behavior_analytics"
+      description: "Users with high engagement should have low churn risk"
+      expression: "CASE WHEN engagement_score > 70 AND churn_risk_score > 0.7 THEN 0 ELSE 1 END"
+      threshold: 90.0
+      severity: "warning"
+    
+    - type: "custom"
+      table: "user_behavior_analytics"
+      description: "Active users should have recent activity"
+      expression: "CASE WHEN total_events > 0 AND days_since_last_activity > 30 THEN 0 ELSE 1 END"
+      threshold: 95.0
+      severity: "warning"
+    
+    # Data freshness
+    - type: "freshness"
+      table: "raw_user_events"
+      field: "timestamp"
+      description: "Event data should be fresh within 2 hours"
+      expression: "2"
+      threshold: 90.0
+      severity: "warning"

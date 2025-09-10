@@ -1,0 +1,802 @@
+dataContractSpecification: "1.0.0"
+id: "product-recommendation-contract"
+info:
+  title: "Product Recommendation Data Contract"
+  version: "2.0.0"
+  description: "Multi-source data meshing for ML-powered product recommendations"
+  owner: "ML Engineering Team"
+  contact:
+    name: "ML Engineering"
+    email: "ml-eng@company.com"
+
+servers:
+  - type: "spark"
+    environment: "production"
+    description: "Production ML pipeline cluster"
+    connectionString: "database:ml_prod"
+
+schema:
+  tables:
+    # Source: Product catalog
+    product_catalog:
+      type: "source"
+      domain: "product"
+      description: "Product master data with attributes and categories"
+      physicalName: "products"
+      fields:
+        product_id:
+          type: "string"
+          description: "Unique product identifier"
+          required: true
+          primaryKey: true
+        product_name:
+          type: "string"
+          description: "Product display name"
+          required: true
+          constraints:
+            minLength: 1
+            maxLength: 200
+        category_id:
+          type: "string"
+          description: "Product category identifier"
+          required: true
+        category_name:
+          type: "string"
+          description: "Category display name"
+          required: true
+        brand:
+          type: "string"
+          description: "Product brand"
+          nullable: true
+        price:
+          type: "decimal"
+          precision: 10
+          scale: 2
+          description: "Current price"
+          required: true
+          constraints:
+            minimum: 0
+        currency:
+          type: "string"
+          description: "Price currency"
+          required: true
+          constraints:
+            pattern: "^[A-Z]{3}$"
+        description:
+          type: "string"
+          description: "Product description"
+          nullable: true
+        tags:
+          type: "array"
+          description: "Product tags for categorization"
+        attributes:
+          type: "struct"
+          description: "Product-specific attributes (color, size, etc.)"
+        is_active:
+          type: "boolean"
+          description: "Product availability status"
+          required: true
+        created_date:
+          type: "timestamp"
+          description: "Product creation date"
+          required: true
+        last_updated:
+          type: "timestamp"
+          description: "Last update timestamp"
+          required: true
+      partitionBy: ["category_id"]
+      clusterBy: ["brand", "is_active"]
+
+    # Source: User interactions
+    user_interactions:
+      type: "source"
+      domain: "user"
+      description: "User product interaction events"
+      physicalName: "interactions"
+      fields:
+        interaction_id:
+          type: "string"
+          description: "Unique interaction identifier"
+          required: true
+          primaryKey: true
+        user_id:
+          type: "string"
+          description: "User identifier"
+          required: true
+        product_id:
+          type: "string"
+          description: "Product identifier"
+          required: true
+        interaction_type:
+          type: "string"
+          description: "Type of interaction"
+          required: true
+          constraints:
+            enum: ["view", "click", "add_to_cart", "purchase", "like", "share", "review"]
+        interaction_timestamp:
+          type: "timestamp"
+          description: "When interaction occurred"
+          required: true
+        session_id:
+          type: "string"
+          description: "User session identifier"
+          required: true
+        rating:
+          type: "integer"
+          description: "User rating (1-5) for review interactions"
+          nullable: true
+          constraints:
+            minimum: 1
+            maximum: 5
+        quantity:
+          type: "integer"
+          description: "Quantity for purchase/cart interactions"
+          nullable: true
+          constraints:
+            minimum: 1
+        price_paid:
+          type: "decimal"
+          precision: 10
+          scale: 2
+          description: "Price paid for purchase interactions"
+          nullable: true
+        device_type:
+          type: "string"
+          description: "Device used for interaction"
+          constraints:
+            enum: ["desktop", "mobile", "tablet"]
+        channel:
+          type: "string"
+          description: "Interaction channel"
+          constraints:
+            enum: ["web", "mobile_app", "email", "social_media"]
+      partitionBy: ["interaction_timestamp"]
+      clusterBy: ["user_id", "interaction_type"]
+
+    # Source: User demographics
+    user_demographics:
+      type: "source"
+      domain: "user"
+      description: "User demographic and preference data"
+      physicalName: "user_profiles"
+      fields:
+        user_id:
+          type: "string"
+          description: "Unique user identifier"
+          required: true
+          primaryKey: true
+        age_group:
+          type: "string"
+          description: "User age group"
+          nullable: true
+          constraints:
+            enum: ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"]
+        gender:
+          type: "string"
+          description: "User gender"
+          nullable: true
+          constraints:
+            enum: ["M", "F", "O", "P"]
+        location_country:
+          type: "string"
+          description: "User country"
+          nullable: true
+        location_region:
+          type: "string"
+          description: "User region/state"
+          nullable: true
+        preferred_categories:
+          type: "array"
+          description: "User's preferred product categories"
+        loyalty_tier:
+          type: "string"
+          description: "Customer loyalty tier"
+          required: true
+          constraints:
+            enum: ["bronze", "silver", "gold", "platinum"]
+        signup_date:
+          type: "timestamp"
+          description: "User registration date"
+          required: true
+        total_purchases:
+          type: "integer"
+          description: "Total number of purchases"
+          required: true
+        total_spent:
+          type: "decimal"
+          precision: 12
+          scale: 2
+          description: "Total amount spent"
+          required: true
+
+    # Target: Product recommendation features
+    product_recommendation_features:
+      type: "target"
+      domain: "product"
+      description: "ML features for product recommendation models"
+      physicalName: "recommendation_features"
+      fields:
+        feature_date:
+          type: "date"
+          description: "Date of feature calculation"
+          required: true
+          primaryKey: true
+        product_id:
+          type: "string"
+          description: "Product identifier"
+          required: true
+          primaryKey: true
+        
+        # Product features
+        product_name:
+          type: "string"
+          description: "Product name"
+        category_id:
+          type: "string"
+          description: "Product category"
+        category_name:
+          type: "string"
+          description: "Category name"
+        brand:
+          type: "string"
+          description: "Product brand"
+        current_price:
+          type: "decimal"
+          precision: 10
+          scale: 2
+          description: "Current product price"
+        price_tier:
+          type: "string"
+          description: "Price tier classification"
+          constraints:
+            enum: ["budget", "mid-range", "premium", "luxury"]
+        
+        # Popularity features (last 30 days)
+        total_views:
+          type: "integer"
+          description: "Total product views"
+        total_clicks:
+          type: "integer"
+          description: "Total product clicks"
+        total_cart_adds:
+          type: "integer"
+          description: "Total add-to-cart events"
+        total_purchases:
+          type: "integer"
+          description: "Total purchases"
+        total_likes:
+          type: "integer"
+          description: "Total likes/favorites"
+        total_shares:
+          type: "integer"
+          description: "Total shares"
+        total_reviews:
+          type: "integer"
+          description: "Total reviews"
+        
+        # Conversion metrics
+        view_to_click_rate:
+          type: "double"
+          description: "Click-through rate from views"
+        click_to_cart_rate:
+          type: "double"
+          description: "Add-to-cart rate from clicks"
+        cart_to_purchase_rate:
+          type: "double"
+          description: "Purchase conversion rate"
+        overall_conversion_rate:
+          type: "double"
+          description: "Overall view-to-purchase rate"
+        
+        # Rating features
+        avg_rating:
+          type: "double"
+          description: "Average user rating"
+        rating_count:
+          type: "integer"
+          description: "Number of ratings"
+        rating_distribution:
+          type: "struct"
+          description: "Distribution of ratings (1-5 stars)"
+        
+        # Trend features
+        popularity_trend:
+          type: "string"
+          description: "Popularity trend"
+          constraints:
+            enum: ["rising", "stable", "declining"]
+        velocity_score:
+          type: "double"
+          description: "Rate of popularity change"
+        
+        # Cross-selling features
+        frequently_bought_with:
+          type: "array"
+          description: "Products frequently bought together"
+        category_affinity_score:
+          type: "double"
+          description: "Affinity within category"
+        
+        # Demographic features
+        popular_age_groups:
+          type: "array"
+          description: "Age groups with highest engagement"
+        popular_genders:
+          type: "array"
+          description: "Genders with highest engagement"
+        popular_countries:
+          type: "array"
+          description: "Countries with highest engagement"
+        
+        # Seasonality features
+        is_seasonal:
+          type: "boolean"
+          description: "Whether product shows seasonal patterns"
+        peak_months:
+          type: "array"
+          description: "Months with peak sales"
+        
+        # Inventory and business features
+        days_since_launch:
+          type: "integer"
+          description: "Days since product launch"
+        is_new_arrival:
+          type: "boolean"
+          description: "Whether product is new (< 30 days)"
+        stock_status:
+          type: "string"
+          description: "Current stock status"
+          constraints:
+            enum: ["in_stock", "low_stock", "out_of_stock"]
+        
+        # ML model features
+        embedding_vector:
+          type: "array"
+          description: "Product embedding vector for similarity"
+        cluster_id:
+          type: "string"
+          description: "Product cluster assignment"
+        
+        feature_generation_timestamp:
+          type: "timestamp"
+          description: "When features were generated"
+          required: true
+      
+      partitionBy: ["feature_date"]
+      clusterBy: ["category_id", "popularity_trend"]
+
+    # Target: User-product affinity matrix
+    user_product_affinity:
+      type: "target"
+      domain: "user"
+      description: "User-product affinity scores for collaborative filtering"
+      physicalName: "user_product_scores"
+      fields:
+        user_id:
+          type: "string"
+          description: "User identifier"
+          required: true
+          primaryKey: true
+        product_id:
+          type: "string"
+          description: "Product identifier"
+          required: true
+          primaryKey: true
+        calculation_date:
+          type: "date"
+          description: "Date of calculation"
+          required: true
+          primaryKey: true
+        
+        # Explicit feedback
+        explicit_rating:
+          type: "double"
+          description: "Explicit user rating (1-5)"
+          nullable: true
+        
+        # Implicit feedback scores
+        view_score:
+          type: "double"
+          description: "Score based on views (0-1)"
+        click_score:
+          type: "double"
+          description: "Score based on clicks (0-1)"
+        cart_score:
+          type: "double"
+          description: "Score based on cart additions (0-1)"
+        purchase_score:
+          type: "double"
+          description: "Score based on purchases (0-1)"
+        engagement_score:
+          type: "double"
+          description: "Score based on likes/shares (0-1)"
+        
+        # Combined affinity
+        affinity_score:
+          type: "double"
+          description: "Combined affinity score (0-1)"
+        confidence_score:
+          type: "double"
+          description: "Confidence in the affinity score (0-1)"
+        
+        # Contextual features
+        recency_weight:
+          type: "double"
+          description: "Recency-based weight multiplier"
+        frequency_weight:
+          type: "double"
+          description: "Frequency-based weight multiplier"
+        
+        # Interaction details
+        first_interaction_date:
+          type: "timestamp"
+          description: "First interaction with product"
+        last_interaction_date:
+          type: "timestamp"
+          description: "Most recent interaction"
+        interaction_count:
+          type: "integer"
+          description: "Total number of interactions"
+        interaction_types:
+          type: "array"
+          description: "Types of interactions performed"
+      
+      partitionBy: ["calculation_date"]
+      clusterBy: ["affinity_score", "user_id"]
+
+transformations:
+  # Step 1: Calculate product features
+  product_feature_calculation:
+    type: "aggregate"
+    description: "Calculate comprehensive product features for recommendations"
+    source: ["product_catalog", "user_interactions"]
+    target: "product_recommendation_features"
+    sql: |
+      WITH product_stats AS (
+        SELECT 
+          p.product_id,
+          p.product_name,
+          p.category_id,
+          p.category_name,
+          p.brand,
+          p.price as current_price,
+          p.created_date,
+          p.is_active,
+          
+          -- Interaction counts (last 30 days)
+          COUNT(CASE WHEN i.interaction_type = 'view' THEN 1 END) as total_views,
+          COUNT(CASE WHEN i.interaction_type = 'click' THEN 1 END) as total_clicks,
+          COUNT(CASE WHEN i.interaction_type = 'add_to_cart' THEN 1 END) as total_cart_adds,
+          COUNT(CASE WHEN i.interaction_type = 'purchase' THEN 1 END) as total_purchases,
+          COUNT(CASE WHEN i.interaction_type = 'like' THEN 1 END) as total_likes,
+          COUNT(CASE WHEN i.interaction_type = 'share' THEN 1 END) as total_shares,
+          COUNT(CASE WHEN i.interaction_type = 'review' THEN 1 END) as total_reviews,
+          
+          -- Rating stats
+          AVG(CASE WHEN i.interaction_type = 'review' AND i.rating IS NOT NULL THEN i.rating END) as avg_rating,
+          COUNT(CASE WHEN i.interaction_type = 'review' AND i.rating IS NOT NULL THEN 1 END) as rating_count,
+          
+          -- Demographic insights
+          COLLECT_SET(CASE WHEN u.age_group IS NOT NULL THEN u.age_group END) as popular_age_groups,
+          COLLECT_SET(CASE WHEN u.gender IS NOT NULL THEN u.gender END) as popular_genders,
+          COLLECT_SET(CASE WHEN u.location_country IS NOT NULL THEN u.location_country END) as popular_countries
+          
+        FROM product_catalog p
+        LEFT JOIN user_interactions i ON p.product_id = i.product_id 
+          AND i.interaction_timestamp >= CURRENT_DATE - INTERVAL 30 DAYS
+        LEFT JOIN user_demographics u ON i.user_id = u.user_id
+        WHERE p.is_active = true
+        GROUP BY p.product_id, p.product_name, p.category_id, p.category_name, 
+                 p.brand, p.price, p.created_date, p.is_active
+      ),
+      
+      price_tiers AS (
+        SELECT 
+          product_id,
+          CASE 
+            WHEN current_price <= 50 THEN 'budget'
+            WHEN current_price <= 200 THEN 'mid-range'
+            WHEN current_price <= 500 THEN 'premium'
+            ELSE 'luxury'
+          END as price_tier
+        FROM product_stats
+      ),
+      
+      trend_analysis AS (
+        SELECT 
+          product_id,
+          CASE 
+            WHEN total_views > LAG(total_views, 7) OVER (PARTITION BY product_id ORDER BY CURRENT_DATE) * 1.2 THEN 'rising'
+            WHEN total_views < LAG(total_views, 7) OVER (PARTITION BY product_id ORDER BY CURRENT_DATE) * 0.8 THEN 'declining'
+            ELSE 'stable'
+          END as popularity_trend,
+          
+          -- Simplified velocity calculation
+          (total_views - COALESCE(LAG(total_views, 7) OVER (PARTITION BY product_id ORDER BY CURRENT_DATE), 0)) / 7.0 as velocity_score
+        FROM product_stats
+      )
+      
+      SELECT 
+        CURRENT_DATE as feature_date,
+        ps.product_id,
+        ps.product_name,
+        ps.category_id,
+        ps.category_name,
+        ps.brand,
+        ps.current_price,
+        pt.price_tier,
+        
+        -- Popularity metrics
+        COALESCE(ps.total_views, 0) as total_views,
+        COALESCE(ps.total_clicks, 0) as total_clicks,
+        COALESCE(ps.total_cart_adds, 0) as total_cart_adds,
+        COALESCE(ps.total_purchases, 0) as total_purchases,
+        COALESCE(ps.total_likes, 0) as total_likes,
+        COALESCE(ps.total_shares, 0) as total_shares,
+        COALESCE(ps.total_reviews, 0) as total_reviews,
+        
+        -- Conversion rates
+        CASE 
+          WHEN ps.total_views > 0 THEN ps.total_clicks / ps.total_views 
+          ELSE 0.0 
+        END as view_to_click_rate,
+        
+        CASE 
+          WHEN ps.total_clicks > 0 THEN ps.total_cart_adds / ps.total_clicks 
+          ELSE 0.0 
+        END as click_to_cart_rate,
+        
+        CASE 
+          WHEN ps.total_cart_adds > 0 THEN ps.total_purchases / ps.total_cart_adds 
+          ELSE 0.0 
+        END as cart_to_purchase_rate,
+        
+        CASE 
+          WHEN ps.total_views > 0 THEN ps.total_purchases / ps.total_views 
+          ELSE 0.0 
+        END as overall_conversion_rate,
+        
+        -- Rating features
+        COALESCE(ps.avg_rating, 0.0) as avg_rating,
+        COALESCE(ps.rating_count, 0) as rating_count,
+        
+        -- Build rating distribution struct (simplified)
+        STRUCT(
+          ps.rating_count as total_ratings,
+          ps.avg_rating as average
+        ) as rating_distribution,
+        
+        -- Trends
+        COALESCE(ta.popularity_trend, 'stable') as popularity_trend,
+        COALESCE(ta.velocity_score, 0.0) as velocity_score,
+        
+        -- Cross-selling (simplified - would need more complex analysis)
+        ARRAY() as frequently_bought_with,
+        1.0 as category_affinity_score,
+        
+        -- Demographics
+        ps.popular_age_groups,
+        ps.popular_genders,
+        ps.popular_countries,
+        
+        -- Seasonality (simplified)
+        false as is_seasonal,
+        ARRAY() as peak_months,
+        
+        -- Business features
+        DATEDIFF(CURRENT_DATE, ps.created_date) as days_since_launch,
+        (DATEDIFF(CURRENT_DATE, ps.created_date) <= 30) as is_new_arrival,
+        'in_stock' as stock_status,  -- Would come from inventory system
+        
+        -- ML features (simplified)
+        ARRAY() as embedding_vector,
+        CONCAT('cluster_', ps.category_id) as cluster_id,
+        
+        CURRENT_TIMESTAMP() as feature_generation_timestamp
+        
+      FROM product_stats ps
+      JOIN price_tiers pt ON ps.product_id = pt.product_id
+      LEFT JOIN trend_analysis ta ON ps.product_id = ta.product_id
+
+  # Step 2: Calculate user-product affinity
+  user_product_affinity_calculation:
+    type: "transform"
+    description: "Calculate user-product affinity scores from interactions"
+    source: ["user_interactions", "user_demographics"]
+    target: "user_product_affinity"
+    sql: |
+      WITH user_product_interactions AS (
+        SELECT 
+          i.user_id,
+          i.product_id,
+          
+          -- Explicit feedback
+          AVG(CASE WHEN i.interaction_type = 'review' AND i.rating IS NOT NULL THEN i.rating END) as explicit_rating,
+          
+          -- Implicit feedback counts
+          COUNT(CASE WHEN i.interaction_type = 'view' THEN 1 END) as view_count,
+          COUNT(CASE WHEN i.interaction_type = 'click' THEN 1 END) as click_count,
+          COUNT(CASE WHEN i.interaction_type = 'add_to_cart' THEN 1 END) as cart_count,
+          COUNT(CASE WHEN i.interaction_type = 'purchase' THEN 1 END) as purchase_count,
+          COUNT(CASE WHEN i.interaction_type IN ('like', 'share') THEN 1 END) as engagement_count,
+          
+          -- Interaction metadata
+          MIN(i.interaction_timestamp) as first_interaction_date,
+          MAX(i.interaction_timestamp) as last_interaction_date,
+          COUNT(*) as total_interactions,
+          COLLECT_SET(i.interaction_type) as interaction_types,
+          
+          -- Recency and frequency
+          DATEDIFF(CURRENT_DATE, MAX(i.interaction_timestamp)) as days_since_last_interaction,
+          COUNT(DISTINCT DATE(i.interaction_timestamp)) as unique_interaction_days
+          
+        FROM user_interactions i
+        WHERE i.interaction_timestamp >= CURRENT_DATE - INTERVAL 90 DAYS
+        GROUP BY i.user_id, i.product_id
+      ),
+      
+      user_global_stats AS (
+        SELECT 
+          user_id,
+          MAX(view_count) as max_views_per_product,
+          MAX(click_count) as max_clicks_per_product,
+          MAX(cart_count) as max_carts_per_product,
+          MAX(purchase_count) as max_purchases_per_product,
+          MAX(engagement_count) as max_engagement_per_product
+        FROM user_product_interactions
+        GROUP BY user_id
+      )
+      
+      SELECT 
+        upi.user_id,
+        upi.product_id,
+        CURRENT_DATE as calculation_date,
+        
+        -- Explicit rating
+        upi.explicit_rating,
+        
+        -- Normalized implicit scores (0-1)
+        CASE 
+          WHEN ugs.max_views_per_product > 0 
+          THEN upi.view_count / ugs.max_views_per_product 
+          ELSE 0.0 
+        END as view_score,
+        
+        CASE 
+          WHEN ugs.max_clicks_per_product > 0 
+          THEN upi.click_count / ugs.max_clicks_per_product 
+          ELSE 0.0 
+        END as click_score,
+        
+        CASE 
+          WHEN ugs.max_carts_per_product > 0 
+          THEN upi.cart_count / ugs.max_carts_per_product 
+          ELSE 0.0 
+        END as cart_score,
+        
+        CASE 
+          WHEN ugs.max_purchases_per_product > 0 
+          THEN upi.purchase_count / ugs.max_purchases_per_product 
+          ELSE 0.0 
+        END as purchase_score,
+        
+        CASE 
+          WHEN ugs.max_engagement_per_product > 0 
+          THEN upi.engagement_count / ugs.max_engagement_per_product 
+          ELSE 0.0 
+        END as engagement_score,
+        
+        -- Combined affinity score (weighted average)
+        (
+          COALESCE(
+            CASE WHEN ugs.max_views_per_product > 0 THEN upi.view_count / ugs.max_views_per_product ELSE 0.0 END * 0.1 +
+            CASE WHEN ugs.max_clicks_per_product > 0 THEN upi.click_count / ugs.max_clicks_per_product ELSE 0.0 END * 0.2 +
+            CASE WHEN ugs.max_carts_per_product > 0 THEN upi.cart_count / ugs.max_carts_per_product ELSE 0.0 END * 0.3 +
+            CASE WHEN ugs.max_purchases_per_product > 0 THEN upi.purchase_count / ugs.max_purchases_per_product ELSE 0.0 END * 0.3 +
+            CASE WHEN ugs.max_engagement_per_product > 0 THEN upi.engagement_count / ugs.max_engagement_per_product ELSE 0.0 END * 0.1,
+            0.0
+          )
+        ) as affinity_score,
+        
+        -- Confidence based on interaction diversity and volume
+        LEAST(1.0, 
+          (SIZE(upi.interaction_types) / 5.0) * 0.5 +  -- Diversity factor
+          (LOG10(upi.total_interactions + 1) / 2.0) * 0.5  -- Volume factor
+        ) as confidence_score,
+        
+        -- Recency weight (decay over time)
+        CASE 
+          WHEN upi.days_since_last_interaction <= 7 THEN 1.0
+          WHEN upi.days_since_last_interaction <= 30 THEN 0.8
+          WHEN upi.days_since_last_interaction <= 60 THEN 0.5
+          ELSE 0.2
+        END as recency_weight,
+        
+        -- Frequency weight
+        LEAST(1.0, upi.unique_interaction_days / 30.0) as frequency_weight,
+        
+        -- Interaction details
+        upi.first_interaction_date,
+        upi.last_interaction_date,
+        upi.total_interactions as interaction_count,
+        upi.interaction_types
+        
+      FROM user_product_interactions upi
+      JOIN user_global_stats ugs ON upi.user_id = ugs.user_id
+
+quality:
+  expectations:
+    # Source data validation
+    - type: "not_null"
+      table: "product_catalog"
+      field: "product_id"
+      description: "Product ID must be present"
+      severity: "error"
+    
+    - type: "not_null"
+      table: "user_interactions"
+      field: "interaction_id"
+      description: "Interaction ID must be present"
+      severity: "error"
+    
+    - type: "not_null"
+      table: "user_demographics"
+      field: "user_id"
+      description: "User ID must be present"
+      severity: "error"
+    
+    # Feature quality validation
+    - type: "range"
+      table: "product_recommendation_features"
+      field: "view_to_click_rate"
+      description: "Conversion rates should be 0-1"
+      expression: "0,1"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "range"
+      table: "product_recommendation_features"
+      field: "overall_conversion_rate"
+      description: "Overall conversion rate should be 0-1"
+      expression: "0,1"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "range"
+      table: "user_product_affinity"
+      field: "affinity_score"
+      description: "Affinity scores should be 0-1"
+      expression: "0,1"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "range"
+      table: "user_product_affinity"
+      field: "confidence_score"
+      description: "Confidence scores should be 0-1"
+      expression: "0,1"
+      threshold: 1.0
+      severity: "error"
+    
+    # Business logic validation
+    - type: "custom"
+      table: "product_recommendation_features"
+      description: "Products with purchases should have views"
+      expression: "CASE WHEN total_purchases > 0 AND total_views = 0 THEN 0 ELSE 1 END"
+      threshold: 100.0
+      severity: "error"
+    
+    - type: "custom"
+      table: "user_product_affinity"
+      description: "High affinity should correlate with recent interactions"
+      expression: "CASE WHEN affinity_score > 0.7 AND recency_weight < 0.3 THEN 0 ELSE 1 END"
+      threshold: 80.0
+      severity: "warning"
+    
+    # Data completeness
+    - type: "completeness"
+      table: "product_recommendation_features"
+      field: "category_id"
+      description: "All products should have categories"
+      threshold: 100.0
+      severity: "error"
