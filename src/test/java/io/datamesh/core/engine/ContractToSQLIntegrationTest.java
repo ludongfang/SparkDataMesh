@@ -1,7 +1,7 @@
 package io.datamesh.core.engine;
 
-import io.sparkdataflow.core.contract.DataContract;
-import io.sparkdataflow.core.contract.DataContractLoader;
+import io.datamesh.core.contract.DataContract;
+import io.datamesh.core.contract.DataContractLoader;
 import org.junit.Test;
 import org.junit.Assert;
 import org.junit.Before;

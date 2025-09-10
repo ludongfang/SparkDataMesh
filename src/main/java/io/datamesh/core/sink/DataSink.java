@@ -1,6 +1,6 @@
 package io.datamesh.core.sink;
 
-import io.sparkdataflow.core.contract.DataContract;
+import io.datamesh.core.contract.DataContract;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;

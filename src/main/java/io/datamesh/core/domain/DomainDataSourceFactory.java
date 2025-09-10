@@ -1,6 +1,6 @@
 package io.datamesh.core.domain;
 
-import io.sparkdataflow.core.contract.DataContract;
+import io.datamesh.core.contract.DataContract;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

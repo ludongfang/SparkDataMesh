@@ -1,6 +1,6 @@
 package io.datamesh.core.engine;
 
-import io.sparkdataflow.core.contract.DataContract;
+import io.datamesh.core.contract.DataContract;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

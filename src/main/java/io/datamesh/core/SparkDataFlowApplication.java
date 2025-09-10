@@ -1,9 +1,9 @@
 package io.datamesh.core;
 
-import io.sparkdataflow.core.config.ApplicationConfig;
-import io.sparkdataflow.core.contract.DataContract;
-import io.sparkdataflow.core.contract.DataContractLoader;
-import io.sparkdataflow.core.engine.DataFlowEngine;
+import io.datamesh.core.config.ApplicationConfig;
+import io.datamesh.core.contract.DataContract;
+import io.datamesh.core.contract.DataContractLoader;
+import io.datamesh.core.engine.DataFlowEngine;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
