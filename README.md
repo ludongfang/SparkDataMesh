@@ -5,7 +5,7 @@ A contract-driven data processing framework for Apache Spark that automates SQL 
 ## Features
 
 - **Contract-First Development**: Define transformations using YAML contracts
-- **Multi-Source Support**: Spark tables, Delta Lake, Parquet, JSON, CSV
+- **Multi-Source Support**: Spark tables, Hive tables, Delta Lake, Parquet, JSON, CSV
 - **SQL Generation**: Auto-generates optimized Spark SQL from rules
 - **Data Quality**: Built-in validators with configurable severity levels
 - **Domain-Driven**: Organize processing by business domains
@@ -88,7 +88,7 @@ java -cp target/spark-data-flow-1.0-SNAPSHOT.jar \
 **Data Contract** → **SQL Generation** → **Validation** → **Execution**
 
 ### Components
-- **Data Sources**: Spark tables, Delta Lake, Parquet, JSON, CSV
+- **Data Sources**: Spark tables, Hive tables, Delta Lake, Parquet, JSON, CSV
 - **Transformations**: extract, transform, aggregate, join, filter, union
 - **Validators**: not_null, unique, range, pattern, freshness, completeness, custom
 
@@ -134,6 +134,109 @@ quality:
       severity: "error"
 ```
 
+## Hive Integration
+
+SparkDataMesh supports Hive tables through Spark's built-in Hive integration, enabling seamless processing of data stored in Hive.
+
+### Hive Data Contract Example
+
+```yaml
+dataContractSpecification: "1.0.0"
+id: "hive-sales-processing"
+info:
+  title: "Sales Data Processing with Hive"
+  version: "1.0.0"
+
+servers:
+  - type: "hive"
+    environment: "production"
+    description: "Production Hive cluster"
+    connectionString: "hive://sales_db?metastore=thrift://hive-metastore:9083"
+
+schema:
+  tables:
+    raw_sales:
+      type: "source"
+      domain: "sales"
+      physicalName: "raw_sales"
+      fields:
+        sale_id:
+          type: "string"
+          required: true
+          primaryKey: true
+        total_amount:
+          type: "decimal"
+          precision: 10
+          scale: 2
+        sale_date:
+          type: "date"
+        region:
+          type: "string"
+          constraints:
+            enum: ["north", "south", "east", "west"]
+      partitionBy: ["sale_date", "region"]
+      clusterBy: ["sale_id"]
+
+transformations:
+  process_sales:
+    type: "transform"
+    source: "raw_sales"
+    target: "processed_sales"
+    rules:
+      - field: "revenue_category"
+        operation: "map"
+        expression: "CASE WHEN total_amount >= 1000 THEN 'high' ELSE 'low' END"
+```
+
+### Hive Connection Strings
+
+Hive connection strings support the following formats:
+
+- Basic database: `hive://database_name`
+- With metastore URI: `hive://database_name?metastore=thrift://host:port`
+- Legacy format: `database:database_name` (uses default metastore settings)
+
+### Hive Configuration
+
+Configure Hive settings in `application.conf`:
+
+```hocon
+hive {
+  metastoreUris = "thrift://localhost:9083"
+  defaultDatabase = "default"
+  warehouseDir = "/tmp/hive-warehouse"
+  
+  auth {
+    enabled = false
+    principal = ""
+    keytab = ""
+  }
+  
+  connection {
+    timeoutMs = 60000
+    retryIntervalMs = 5000
+    maxRetries = 3
+  }
+}
+
+spark {
+  configs {
+    "spark.sql.catalogImplementation" = "hive"
+    "javax.jdo.option.ConnectionURL" = "jdbc:derby:memory:metastore_db;create=true"
+    "javax.jdo.option.ConnectionDriverName" = "org.apache.derby.jdbc.EmbeddedDriver"
+  }
+}
+```
+
+### Hive Features
+
+- **Partitioning**: Automatic partition discovery and pruning
+- **Bucketing**: Support for clustered tables
+- **Metastore Integration**: Connect to external Hive metastore
+- **Schema Evolution**: Handle schema changes gracefully
+- **Data Types**: Full support for Hive data types
+- **DDL Operations**: Create tables from contract definitions
+
 ## Configuration
 
 ```hocon
@@ -148,9 +251,10 @@ spark {
 validation.enabled = true
 ```
 
-## Example
+## Examples
 
-See `src/main/resources/contracts/sample-transaction-contract.yaml` for a complete working example.
+- **Transaction Processing**: `src/main/resources/contracts/sample-transaction-contract.yaml`
+- **Hive Integration**: `src/main/resources/contracts/sample-hive-contract.yaml`
 
 ## Project Structure
 

@@ -28,8 +28,9 @@ public class DomainDataSourceFactory {
             
             switch (serverConfig.getType().toLowerCase()) {
                 case "spark":
-                case "hive":
                     return createSparkTableDataSource(domain, serverConfig);
+                case "hive":
+                    return createHiveDataSource(domain, serverConfig);
                 case "delta":
                     return createDeltaTableDataSource(domain, serverConfig);
                 case "parquet":
@@ -47,6 +48,12 @@ public class DomainDataSourceFactory {
     private DomainDataSource createSparkTableDataSource(String domain, DataContract.Server serverConfig) {
         String database = extractDatabaseFromConnectionString(serverConfig.getConnectionString());
         return new SparkTableDataSource(spark, domain, database);
+    }
+    
+    private DomainDataSource createHiveDataSource(String domain, DataContract.Server serverConfig) {
+        String database = extractDatabaseFromConnectionString(serverConfig.getConnectionString());
+        String metastoreUri = extractMetastoreUriFromConnectionString(serverConfig.getConnectionString());
+        return new HiveDataSource(spark, domain, database, metastoreUri);
     }
     
     private DomainDataSource createDeltaTableDataSource(String domain, DataContract.Server serverConfig) {
@@ -74,7 +81,37 @@ public class DomainDataSourceFactory {
             return connectionString.substring("database:".length());
         }
         
+        // Handle Hive connection string format: hive://database?metastore=uri
+        if (connectionString.startsWith("hive://")) {
+            String withoutProtocol = connectionString.substring("hive://".length());
+            if (withoutProtocol.contains("?")) {
+                return withoutProtocol.split("\\?")[0];
+            }
+            return withoutProtocol;
+        }
+        
         return connectionString;
+    }
+    
+    private String extractMetastoreUriFromConnectionString(String connectionString) {
+        if (connectionString == null || connectionString.isEmpty()) {
+            return null;
+        }
+        
+        // Handle Hive connection string format: hive://database?metastore=uri
+        if (connectionString.startsWith("hive://") && connectionString.contains("metastore=")) {
+            String[] parts = connectionString.split("\\?");
+            if (parts.length > 1) {
+                String[] params = parts[1].split("&");
+                for (String param : params) {
+                    if (param.startsWith("metastore=")) {
+                        return param.substring("metastore=".length());
+                    }
+                }
+            }
+        }
+        
+        return null;
     }
     
     public DomainDataSource getDataSource(String domain, String type, String environment) {

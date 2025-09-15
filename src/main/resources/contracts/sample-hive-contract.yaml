@@ -1,0 +1,260 @@
+dataContractSpecification: "1.0.0"
+id: "hive-sales-data-contract"
+info:
+  title: "Sales Data Processing with Hive"
+  version: "1.0.0"
+  description: "Data contract for processing sales data stored in Hive tables"
+  owner: "Data Engineering Team"
+  contact:
+    name: "Data Engineering"
+    email: "data-eng@company.com"
+
+servers:
+  - type: "hive"
+    environment: "production"
+    description: "Production Hive cluster for sales domain"
+    connectionString: "hive://sales_db?metastore=thrift://hive-metastore:9083"
+
+schema:
+  tables:
+    raw_sales:
+      type: "source"
+      domain: "sales"
+      description: "Raw sales data from transactional systems"
+      physicalName: "raw_sales"
+      fields:
+        sale_id:
+          type: "string"
+          description: "Unique sale identifier"
+          required: true
+          nullable: false
+          primaryKey: true
+        customer_id:
+          type: "string"
+          description: "Customer identifier"
+          required: true
+          nullable: false
+        product_id:
+          type: "string"
+          description: "Product identifier"
+          required: true
+          nullable: false
+        quantity:
+          type: "integer"
+          description: "Quantity sold"
+          required: true
+          nullable: false
+          constraints:
+            minimum: 1
+        unit_price:
+          type: "decimal"
+          description: "Price per unit"
+          required: true
+          nullable: false
+          precision: 10
+          scale: 2
+          constraints:
+            minimum: 0
+        sale_date:
+          type: "date"
+          description: "Date of sale"
+          required: true
+          nullable: false
+        sale_timestamp:
+          type: "timestamp"
+          description: "Timestamp of sale"
+          required: true
+          nullable: false
+        store_id:
+          type: "string"
+          description: "Store identifier"
+          required: true
+          nullable: false
+        region:
+          type: "string"
+          description: "Sales region"
+          required: true
+          nullable: false
+          constraints:
+            enum: ["north", "south", "east", "west", "central"]
+      partitionBy: ["sale_date", "region"]
+      clusterBy: ["store_id"]
+
+    processed_sales:
+      type: "target"
+      domain: "sales"
+      description: "Processed and aggregated sales data"
+      physicalName: "processed_sales"
+      fields:
+        sale_id:
+          type: "string"
+          description: "Unique sale identifier"
+          required: true
+          nullable: false
+          primaryKey: true
+        customer_id:
+          type: "string"
+          description: "Customer identifier"
+          required: true
+          nullable: false
+        product_id:
+          type: "string"
+          description: "Product identifier"
+          required: true
+          nullable: false
+        total_amount:
+          type: "decimal"
+          description: "Total sale amount (quantity * unit_price)"
+          required: true
+          nullable: false
+          precision: 12
+          scale: 2
+        quantity:
+          type: "integer"
+          description: "Quantity sold"
+          required: true
+          nullable: false
+        unit_price:
+          type: "decimal"
+          description: "Price per unit"
+          required: true
+          nullable: false
+          precision: 10
+          scale: 2
+        sale_date:
+          type: "date"
+          description: "Date of sale"
+          required: true
+          nullable: false
+        sale_timestamp:
+          type: "timestamp"
+          description: "Timestamp of sale"
+          required: true
+          nullable: false
+        store_id:
+          type: "string"
+          description: "Store identifier"
+          required: true
+          nullable: false
+        region:
+          type: "string"
+          description: "Sales region"
+          required: true
+          nullable: false
+        is_high_value:
+          type: "boolean"
+          description: "Flag for high value sales (>= 1000)"
+          required: true
+          nullable: false
+        revenue_category:
+          type: "string"
+          description: "Revenue category based on total amount"
+          required: true
+          nullable: false
+          constraints:
+            enum: ["low", "medium", "high", "premium"]
+      partitionBy: ["sale_date", "region"]
+
+transformations:
+  sales_processing:
+    type: "transform"
+    description: "Process raw sales data with calculated fields"
+    source: "raw_sales"
+    target: "processed_sales"
+    rules:
+      - field: "sale_id"
+        operation: "map"
+        expression: "sale_id"
+      - field: "customer_id"
+        operation: "map"
+        expression: "customer_id"
+      - field: "product_id"
+        operation: "map"
+        expression: "product_id"
+      - field: "total_amount"
+        operation: "map"
+        expression: "quantity * unit_price"
+      - field: "quantity"
+        operation: "map"
+        expression: "quantity"
+      - field: "unit_price"
+        operation: "map"
+        expression: "unit_price"
+      - field: "sale_date"
+        operation: "map"
+        expression: "sale_date"
+      - field: "sale_timestamp"
+        operation: "map"
+        expression: "sale_timestamp"
+      - field: "store_id"
+        operation: "map"
+        expression: "store_id"
+      - field: "region"
+        operation: "map"
+        expression: "region"
+      - field: "is_high_value"
+        operation: "map"
+        expression: "CASE WHEN (quantity * unit_price) >= 1000 THEN true ELSE false END"
+      - field: "revenue_category"
+        operation: "map"
+        expression: "CASE WHEN (quantity * unit_price) >= 5000 THEN 'premium' WHEN (quantity * unit_price) >= 1000 THEN 'high' WHEN (quantity * unit_price) >= 100 THEN 'medium' ELSE 'low' END"
+
+quality:
+  expectations:
+    - type: "not_null"
+      table: "raw_sales"
+      field: "sale_id"
+      description: "Sale ID should never be null"
+      severity: "error"
+    
+    - type: "not_null"
+      table: "raw_sales"
+      field: "customer_id"
+      description: "Customer ID should never be null"
+      severity: "error"
+    
+    - type: "range"
+      table: "raw_sales"
+      field: "quantity"
+      description: "Quantity should be positive"
+      expression: "1,1000"
+      threshold: 5.0
+      severity: "warning"
+    
+    - type: "range"
+      table: "raw_sales"
+      field: "unit_price"
+      description: "Unit price should be positive and reasonable"
+      expression: "0.01,10000"
+      threshold: 2.0
+      severity: "warning"
+    
+    - type: "pattern"
+      table: "raw_sales"
+      field: "region"
+      description: "Region should be one of the valid values"
+      expression: "^(north|south|east|west|central)$"
+      threshold: 1.0
+      severity: "error"
+    
+    - type: "completeness"
+      table: "processed_sales"
+      field: "total_amount"
+      description: "Total amount should be complete"
+      threshold: 100.0
+      severity: "error"
+    
+    - type: "freshness"
+      table: "raw_sales"
+      field: "sale_timestamp"
+      description: "Data should be fresh within 12 hours"
+      expression: "12"
+      threshold: 95.0
+      severity: "warning"
+    
+    - type: "uniqueness"
+      table: "raw_sales"
+      field: "sale_id"
+      description: "Sale ID should be unique"
+      threshold: 100.0
+      severity: "error"
